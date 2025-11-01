@@ -5,6 +5,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+
 
 # -------------------------------
 # Parameters
@@ -69,7 +73,7 @@ X_test = scaler.transform(X_test)
 # -------------------------------
 # 5) Train SVM
 # -------------------------------
-svm = SVC(kernel='linear', C=1.0, probability=True)
+svm = SVC(kernel='linear', C=1.0, probability=True, max_iter=50)
 svm.fit(X_train, y_train)
 
 # -------------------------------
@@ -80,5 +84,25 @@ y_pred = svm.predict(X_test)
 print("Classification Report:")
 print(classification_report(y_test, y_pred, target_names=le.classes_))
 
-print("Confusion Matrix:")
-print(confusion_matrix(y_test, y_pred))
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8,6))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.title('Confusion Matrix')
+plt.show()
+
+report = classification_report(y_test, y_pred, target_names=le.classes_, output_dict=True)
+df_report = pd.DataFrame(report).transpose()
+
+# Only keep the main classes (ignore 'accuracy', 'macro avg', 'weighted avg')
+df_report = df_report.iloc[:-3]
+
+# Plot Precision, Recall, F1-score
+df_report[['precision', 'recall', 'f1-score']].plot(kind='bar', figsize=(10,6))
+plt.title("Classification Metrics per Class")
+plt.ylabel("Score")
+plt.ylim(0,1)
+plt.xticks(rotation=45)
+plt.show()
