@@ -73,7 +73,7 @@ X_test = scaler.transform(X_test)
 # -------------------------------
 # 5) Train SVM
 # -------------------------------
-svm = SVC(kernel='linear', C=1.0, probability=True, max_iter=50)
+svm = SVC(kernel='linear', C=1.0, probability=True)
 svm.fit(X_train, y_train)
 
 # -------------------------------
