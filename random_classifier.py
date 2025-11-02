@@ -55,11 +55,23 @@ y_pred = np.random.choice(len(REGIONS), size=len(y_test))  # randomly pick class
 # -------------------------------
 cm = confusion_matrix(y_test, y_pred)
 
-plt.figure(figsize=(8,6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix - Random Classifier')
+plt.figure(figsize=(14, 10))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=le.classes_,
+    yticklabels=le.classes_,
+    cbar=True,
+    annot_kws={"size": 12}
+)
+plt.xlabel('Predicted', fontsize=14, labelpad=10)
+plt.ylabel('Actual', fontsize=14, labelpad=10)
+plt.title('Confusion Matrix - Random Classifier', fontsize=16, pad=20)
+plt.xticks(rotation=35, ha='right', fontsize=12)
+plt.yticks(rotation=0, fontsize=12)
+plt.tight_layout(rect=[0, 0, 1, 0.95])  # leaves room for the title
 plt.show()
 
 # -------------------------------
@@ -69,9 +81,13 @@ report = classification_report(y_test, y_pred, target_names=le.classes_, output_
 df_report = pd.DataFrame(report).transpose()
 df_report = df_report.iloc[:-3]  # remove accuracy/macro avg/weighted avg
 
-df_report[['precision', 'recall', 'f1-score']].plot(kind='bar', figsize=(10,6))
-plt.title("Classification Metrics per Class - Random Classifier")
-plt.ylabel("Score")
-plt.ylim(0,1)
-plt.xticks(rotation=45)
+plt.figure(figsize=(14, 8))
+ax = df_report[['precision', 'recall', 'f1-score']].plot(kind='bar', figsize=(14, 8), width=0.8)
+plt.title("Classification Metrics per Class - Random Classifier", fontsize=16, pad=20)
+plt.ylabel("Score", fontsize=14)
+plt.ylim(0, 1)
+plt.xticks(rotation=35, ha='right', fontsize=12)
+plt.yticks(fontsize=12)
+plt.legend(fontsize=12)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()

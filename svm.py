@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-
 # -------------------------------
 # Parameters
 # -------------------------------
@@ -26,8 +25,7 @@ labels = []
 for fname in os.listdir(IMAGE_DIR):
     if fname.endswith(".png"):
         path = os.path.join(IMAGE_DIR, fname)
-        # Correct label parsing: join everything after the first underscore
-        region_label = "_".join(fname.split("_")[1:]).replace(".png","").replace("_"," ")
+        region_label = "_".join(fname.split("_")[1:]).replace(".png", "").replace("_", " ")
         if region_label not in REGIONS:
             continue
         image_paths.append(path)
@@ -38,16 +36,15 @@ print(f"Found {len(image_paths)} images.")
 # -------------------------------
 # 2) Extract features (color histograms)
 # -------------------------------
-def extract_color_histogram(image_path, bins=(8,8,8)):
+def extract_color_histogram(image_path, bins=(8, 8, 8)):
     image = cv2.imread(image_path)
     if image is None:
         print(f"Warning: Failed to read {image_path}")
-        return np.zeros(np.prod(bins), dtype=float)  # return empty feature
-    image = cv2.resize(image, (128,128))  # resize to uniform size
-    hist = cv2.calcHist([image], [0,1,2], None, bins, [0,256,0,256,0,256])  # <-- 6 values, not 8
+        return np.zeros(np.prod(bins), dtype=float)
+    image = cv2.resize(image, (128, 128))
+    hist = cv2.calcHist([image], [0, 1, 2], None, bins, [0, 256, 0, 256, 0, 256])
     hist = cv2.normalize(hist, hist).flatten()
     return hist
-
 
 features = np.array([extract_color_histogram(p) for p in image_paths])
 print(f"Feature array shape: {features.shape}")
@@ -84,25 +81,44 @@ y_pred = svm.predict(X_test)
 print("Classification Report:")
 print(classification_report(y_test, y_pred, target_names=le.classes_))
 
-
+# -------------------------------
+# 7) Confusion Matrix (Improved Visualization)
+# -------------------------------
 cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8,6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
+
+plt.figure(figsize=(14, 10))
+sns.heatmap(
+    cm,
+    annot=True,
+    fmt='d',
+    cmap='Blues',
+    xticklabels=le.classes_,
+    yticklabels=le.classes_,
+    cbar=True,
+    annot_kws={"size": 12}
+)
+plt.xlabel('Predicted', fontsize=14, labelpad=10)
+plt.ylabel('Actual', fontsize=14, labelpad=10)
+plt.title('Confusion Matrix - SVM Classifier', fontsize=16, pad=20)
+plt.xticks(rotation=35, ha='right', fontsize=12)
+plt.yticks(rotation=0, fontsize=12)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
 
+# -------------------------------
+# 8) Precision, Recall, F1 Visualization (Improved)
+# -------------------------------
 report = classification_report(y_test, y_pred, target_names=le.classes_, output_dict=True)
 df_report = pd.DataFrame(report).transpose()
+df_report = df_report.iloc[:-3]  # remove accuracy/macro avg/weighted avg
 
-# Only keep the main classes (ignore 'accuracy', 'macro avg', 'weighted avg')
-df_report = df_report.iloc[:-3]
-
-# Plot Precision, Recall, F1-score
-df_report[['precision', 'recall', 'f1-score']].plot(kind='bar', figsize=(10,6))
-plt.title("Classification Metrics per Class")
-plt.ylabel("Score")
-plt.ylim(0,1)
-plt.xticks(rotation=45)
+plt.figure(figsize=(14, 8))
+df_report[['precision', 'recall', 'f1-score']].plot(kind='bar', figsize=(14, 8), width=0.8)
+plt.title("Classification Metrics per Class - SVM Classifier", fontsize=16, pad=20)
+plt.ylabel("Score", fontsize=14)
+plt.ylim(0, 1)
+plt.xticks(rotation=35, ha='right', fontsize=12)
+plt.yticks(fontsize=12)
+plt.legend(fontsize=12)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
