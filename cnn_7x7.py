@@ -1,34 +1,32 @@
-# cnn_baseline_7x7.py
+# cnn_baseline_7x7_metrics.py
 import os
 import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (
+    classification_report, confusion_matrix, precision_recall_fscore_support
+)
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 from tensorflow.keras import layers, models, optimizers
 from tensorflow.keras.utils import to_categorical
 import tensorflow as tf
 import argparse
 
-# -------------------------------
-# Params
-# -------------------------------
 IMAGE_DIR = "images"
 IMAGE_SIZE = 128
-REGIONS = ['Piedmont', 'Southeastern Plains', 'Blue Ridge', 'Ridge and Valley',
-           'Southwestern Appalachians', 'Southern Coastal Plain']
+REGIONS = [
+    'Piedmont', 'Southeastern Plains', 'Blue Ridge', 'Ridge and Valley',
+    'Southwestern Appalachians', 'Southern Coastal Plain'
+]
 BATCH_SIZE = 32
 EPOCHS = 30
 SEED = 42
 
-# -------------------------------
-# Utilities: load images & labels
-# -------------------------------
 def parse_folder(image_dir=IMAGE_DIR, allowed=REGIONS):
-    image_paths = []
-    labels = []
+    image_paths, labels = [], []
     for fname in os.listdir(image_dir):
         if not fname.lower().endswith(('.png', '.jpg', '.jpeg')):
             continue
@@ -59,12 +57,8 @@ def load_images(paths, image_size=IMAGE_SIZE):
         X.append(img)
     return np.stack(X, axis=0)
 
-# -------------------------------
-# Model: Baseline 7x7 conv blocks
-# -------------------------------
 def build_baseline_7x7(input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3), num_classes=6, channels=[32,64,128], kernel=7):
     model = models.Sequential()
-    # conv blocks using stride=2 (to reduce size as requested) and uniform kernel size
     model.add(layers.Input(shape=input_shape))
     for ch in channels:
         model.add(layers.Conv2D(ch, kernel_size=kernel, strides=2, padding='same'))
@@ -75,9 +69,48 @@ def build_baseline_7x7(input_shape=(IMAGE_SIZE, IMAGE_SIZE, 3), num_classes=6, c
     model.add(layers.Dense(num_classes, activation='softmax'))
     return model
 
-# -------------------------------
-# Main
-# -------------------------------
+def plot_training_curves(history):
+    # Accuracy plot
+    plt.plot(history.history["accuracy"], label="train acc")
+    plt.plot(history.history["val_accuracy"], label="val acc")
+    plt.title("Accuracy Over Epochs")
+    plt.xlabel("Epoch"); plt.ylabel("Accuracy")
+    plt.legend(); plt.show()
+
+    # Loss plot
+    plt.plot(history.history["loss"], label="train loss")
+    plt.plot(history.history["val_loss"], label="val loss")
+    plt.title("Loss Over Epochs")
+    plt.xlabel("Epoch"); plt.ylabel("Loss")
+    plt.legend(); plt.show()
+
+def plot_per_class_f1(target_names, f1_scores):
+    plt.figure(figsize=(10,5))
+    sns.barplot(x=target_names, y=f1_scores)
+    plt.title("Per-Class F1 Score")
+    plt.ylabel("F1 Score"); plt.ylim(0,1)
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout(); plt.show()
+
+def plot_classification_metrics(y_true, y_pred, class_names):
+    # Compute precision, recall, f1 per class
+    precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred)
+    df = pd.DataFrame({
+        "Class": class_names,
+        "Precision": precision,
+        "Recall": recall,
+        "F1-Score": f1
+    })
+
+    df.set_index("Class", inplace=True)
+    df.plot(kind='bar', figsize=(13, 8))
+    plt.title("Classification Metrics per Class - Baseline 7x7 CNN")
+    plt.ylabel("Score")
+    plt.ylim(0, 1)
+    plt.xticks(rotation=30, ha='right')
+    plt.tight_layout()
+    plt.show()
+
 def main(args):
     tf.random.set_seed(SEED)
     np.random.seed(SEED)
@@ -85,7 +118,7 @@ def main(args):
     image_paths, raw_labels = parse_folder(args.image_dir)
     print(f"Found {len(image_paths)} images.")
     if len(image_paths) == 0:
-        raise SystemExit("No images found - check IMAGE_DIR and filename format.")
+        raise SystemExit("No images found – check IMAGE_DIR and file naming format.")
 
     X = load_images(image_paths, image_size=args.image_size)
     le = LabelEncoder()
@@ -97,32 +130,64 @@ def main(args):
         X, y_cat, test_size=args.test_size, random_state=SEED, stratify=y
     )
 
-    model = build_baseline_7x7(input_shape=(args.image_size, args.image_size, 3),
-                               num_classes=num_classes,
-                               channels=[32,64,128],
-                               kernel=7)
-    model.compile(optimizer=optimizers.Adam(learning_rate=args.lr),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+    model = build_baseline_7x7(
+        input_shape=(args.image_size, args.image_size, 3),
+        num_classes=num_classes,
+        channels=[32,64,128],
+        kernel=7
+    )
+    model.compile(
+        optimizer=optimizers.Adam(learning_rate=args.lr),
+        loss='categorical_crossentropy',
+        metrics=['accuracy']
+    )
     model.summary()
 
-    history = model.fit(X_train, y_train,
-                        validation_data=(X_test, y_test),
-                        epochs=args.epochs,
-                        batch_size=args.batch_size)
+    history = model.fit(
+        X_train, y_train,
+        validation_data=(X_test, y_test),
+        epochs=args.epochs,
+        batch_size=args.batch_size
+    )
 
-    # Evaluate and print report
+    plot_training_curves(history)
+
     preds = model.predict(X_test, batch_size=args.batch_size)
     y_pred = np.argmax(preds, axis=1)
     y_true = np.argmax(y_test, axis=1)
 
-    print("Classification Report:")
+    print("\nClassification Report:")
     print(classification_report(y_true, y_pred, target_names=le.classes_))
+
+    # Macro / Weighted metrics
+    precision_macro, recall_macro, f1_macro, _ = precision_recall_fscore_support(
+        y_true, y_pred, average='macro'
+    )
+    precision_weighted, recall_weighted, f1_weighted, _ = precision_recall_fscore_support(
+        y_true, y_pred, average='weighted'
+    )
+    print("\n==== Extra Metrics ====")
+    print(f"Macro Precision:  {precision_macro:.4f}")
+    print(f"Macro Recall:     {recall_macro:.4f}")
+    print(f"Macro F1:         {f1_macro:.4f}")
+    print(f"Weighted Precision:  {precision_weighted:.4f}")
+    print(f"Weighted Recall:     {recall_weighted:.4f}")
+    print(f"Weighted F1:         {f1_weighted:.4f}")
+
+    # Per-class F1 chart
+    _, _, f1_per_class, _ = precision_recall_fscore_support(
+        y_true, y_pred, average=None
+    )
+    plot_per_class_f1(le.classes_, f1_per_class)
+
+    # Classification Metrics Bar Plot (Precision, Recall, F1 together)
+    plot_classification_metrics(y_true, y_pred, le.classes_)
 
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(10,8))
     sns.heatmap(cm, annot=True, fmt='d', xticklabels=le.classes_, yticklabels=le.classes_, cmap='Blues')
-    plt.xlabel('Predicted'); plt.ylabel('Actual'); plt.title('Confusion Matrix - Baseline 7x7')
+    plt.xlabel("Predicted"); plt.ylabel("Actual")
+    plt.title("Confusion Matrix – Baseline 7x7")
     plt.tight_layout(); plt.show()
 
 if __name__ == "__main__":

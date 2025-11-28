@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score
 
 # -------------------------------
 # Parameters
@@ -75,7 +76,13 @@ plt.tight_layout(rect=[0, 0, 1, 0.95])  # leaves room for the title
 plt.show()
 
 # -------------------------------
-# 6) Precision, Recall, F1 visualization
+# 6) Overall accuracy
+# -------------------------------
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Overall Accuracy: {accuracy:.2f}")
+
+# -------------------------------
+# 7) Precision, Recall, F1 visualization
 # -------------------------------
 report = classification_report(y_test, y_pred, target_names=le.classes_, output_dict=True)
 df_report = pd.DataFrame(report).transpose()
@@ -91,3 +98,37 @@ plt.yticks(fontsize=12)
 plt.legend(fontsize=12)
 plt.tight_layout(rect=[0, 0, 1, 0.95])
 plt.show()
+
+
+
+# -------------------------------
+# Per-class metrics and averages
+# -------------------------------
+report = classification_report(
+    y_test,
+    y_pred,
+    target_names=le.classes_,
+    output_dict=True
+)
+
+# Extract per-class metrics
+for region in le.classes_:
+    precision = report[region]['precision']
+    recall = report[region]['recall']
+    f1 = report[region]['f1-score']
+    support = report[region]['support']
+    print(f"{region}: Precision={precision:.2f}, Recall={recall:.2f}, F1={f1:.2f}, Support={support}")
+
+# Macro averages
+macro_precision = report['macro avg']['precision']
+macro_recall = report['macro avg']['recall']
+macro_f1 = report['macro avg']['f1-score']
+
+print(f"\nMacro averages: Precision={macro_precision:.2f}, Recall={macro_recall:.2f}, F1={macro_f1:.2f}")
+
+# Weighted averages
+weighted_precision = report['weighted avg']['precision']
+weighted_recall = report['weighted avg']['recall']
+weighted_f1 = report['weighted avg']['f1-score']
+
+print(f"Weighted averages: Precision={weighted_precision:.2f}, Recall={weighted_recall:.2f}, F1={weighted_f1:.2f}")
